@@ -55,7 +55,13 @@ class ModelManager:
                 self.logger.info(f"Model {base_model} already has quantization, using as-is")
                 return base_model
             
-            # Build optimal model name with quantization
+            # FIRST: Try to find an existing quantized model in Ollama
+            existing_model = await self.find_existing_quantized_model(base_model)
+            if existing_model:
+                self.logger.info(f"Using existing quantized model: {existing_model} (no download needed)")
+                return existing_model
+            
+            # FALLBACK: Build optimal model name with quantization for download
             optimal_model = self.quantization_manager.build_model_name(
                 base_model, 
                 available_memory_mb=int(usable_memory)
@@ -66,7 +72,7 @@ class ModelManager:
             quant_info = self.quantization_manager.get_quantization_info(quantization)
             tier = self.quantization_manager.determine_optimal_tier(int(usable_memory))
             
-            self.logger.info(f"Selected quantization: {quantization} "
+            self.logger.info(f"No existing quantized model found, will download: {quantization} "
                            f"(tier: {tier.value}, quality: {quant_info.quality_score:.2f})")
             
             return optimal_model
@@ -163,6 +169,17 @@ class ModelManager:
     ) -> AsyncIterator[Dict[str, Any]]:
         """Stream inference tokens from Ollama with intelligent model selection"""
         
+        # Handle empty or invalid model names
+        if not model or not model.strip():
+            self.logger.error(f"Empty or invalid model name provided: '{model}'")
+            # Use the first preloaded model as fallback
+            if self.loaded_models:
+                fallback_model = next(iter(self.loaded_models))
+                self.logger.warning(f"Using fallback model: {fallback_model}")
+                model = fallback_model
+            else:
+                raise ValueError("No model specified and no preloaded models available")
+        
         # Check if we have an optimized variant for this model
         actual_model = self.model_registry.get(model, model)
         
@@ -179,16 +196,30 @@ class ModelManager:
                 # Try to find a smaller quantization
                 self.logger.warning(f"Insufficient memory for {actual_model}, trying smaller quantization")
                 
-                # Get available memory and select emergency quantization
-                _, available_mb = self.quantization_manager.get_system_memory_info()
-                emergency_model = self.quantization_manager.build_model_name(
-                    model, 
-                    quantization="Q2_K",  # Emergency fallback
-                    available_memory_mb=available_mb
-                )
-                actual_model = emergency_model
+                # First try to find existing smaller models
+                existing_model = await self.find_existing_quantized_model(model)
+                if existing_model:
+                    actual_model = existing_model
+                else:
+                    # Get available memory and select emergency quantization
+                    _, available_mb = self.quantization_manager.get_system_memory_info()
+                    emergency_model = self.quantization_manager.build_model_name(
+                        model, 
+                        quantization="Q2_K",  # Emergency fallback
+                        available_memory_mb=available_mb
+                    )
+                    actual_model = emergency_model
             
-            await self.pull_model(actual_model)
+            # Only pull if the model doesn't exist in Ollama
+            available_models = await self.list_models()
+            model_names = [m["name"] for m in available_models]
+            
+            if actual_model not in model_names:
+                self.logger.info(f"Downloading model: {actual_model}")
+                await self.pull_model(actual_model)
+            else:
+                self.logger.info(f"Model {actual_model} already exists in Ollama, using it")
+                
             self.loaded_models.add(actual_model)
             self.model_registry[model] = actual_model
 
@@ -233,6 +264,72 @@ class ModelManager:
             return response.json()
         except Exception as e:
             self.logger.warning(f"Failed to get model info for {model}: {e}")
+            return None
+
+    async def find_existing_quantized_model(self, base_model: str) -> Optional[str]:
+        """Find if there's already a suitable quantized version of the model in Ollama"""
+        try:
+            # Get list of available models
+            available_models = await self.list_models()
+            model_names = [model["name"] for model in available_models]
+            
+            # Extract base name from model (remove any existing quantization)
+            base_name = base_model.split(":")[0] if ":" in base_model else base_model
+            
+            # Find models that match the base name
+            matching_models = [name for name in model_names if name.startswith(base_name)]
+            
+            if not matching_models:
+                return None
+            
+            # Get system memory info for quantization selection
+            _, available_mb = self.quantization_manager.get_system_memory_info()
+            usable_memory = max(available_mb - 1024, available_mb * 0.8)
+            
+            # Score each matching model based on how well it fits our memory constraints
+            scored_models = []
+            for model_name in matching_models:
+                try:
+                    # Extract quantization type if present
+                    if ":" in model_name:
+                        quantization = model_name.split(":")[-1].upper()
+                        # Check if it's a valid quantization
+                        if quantization in self.quantization_manager.QUANTIZATIONS:
+                            quant_info = self.quantization_manager.get_quantization_info(quantization)
+                            estimated_memory = self.quantization_manager.estimate_model_memory_usage(
+                                base_name, quantization
+                            )
+                            
+                            # Score based on memory efficiency and quality
+                            if estimated_memory <= usable_memory:
+                                # Higher quality is better, but prioritize memory efficiency
+                                memory_efficiency = 1.0 - (estimated_memory / usable_memory)
+                                score = (quant_info.quality_score * 0.6) + (memory_efficiency * 0.4)
+                                scored_models.append((model_name, score, estimated_memory))
+                    else:
+                        # Original model without quantization - only use if we have plenty of memory
+                        estimated_memory = 8000  # Assume ~8GB for full model
+                        if estimated_memory <= usable_memory:
+                            scored_models.append((model_name, 1.0, estimated_memory))
+                            
+                except Exception as e:
+                    self.logger.debug(f"Failed to score model {model_name}: {e}")
+                    continue
+            
+            if not scored_models:
+                return None
+            
+            # Sort by score (highest first)
+            scored_models.sort(key=lambda x: x[1], reverse=True)
+            best_model = scored_models[0]
+            
+            self.logger.info(f"Found existing quantized model: {best_model[0]} "
+                           f"(score: {best_model[1]:.3f}, estimated memory: {best_model[2]}MB)")
+            
+            return best_model[0]
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to find existing quantized model for {base_model}: {e}")
             return None
 
     async def list_models(self) -> list[Dict[str, Any]]:

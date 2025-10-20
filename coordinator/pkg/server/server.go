@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/titancompute/coordinator/pkg/config"
-	pb "github.com/titancompute/coordinator/pkg/proto"
+	pb "github.com/titancompute/coordinator/pkg/proto/github.com/titancompute/proto/gen/go"
 	"github.com/titancompute/coordinator/pkg/registry"
 	"github.com/titancompute/coordinator/pkg/scheduler"
 )
@@ -49,7 +49,6 @@ type CoordinatorServer struct {
 	logger     *logrus.Logger
 	tokens     map[string]*SessionToken
 	jwtManager *JWTManager
-	startTime  time.Time // Track server uptime
 }
 
 // SessionToken represents a session token for direct agent access
@@ -161,7 +160,6 @@ func NewCoordinatorServer(
 		logger:     logger,
 		tokens:     make(map[string]*SessionToken),
 		jwtManager: jwtManager,
-		startTime:  time.Now(),
 	}, nil
 }
 
@@ -338,14 +336,10 @@ func (s *CoordinatorServer) QuerySystemStatus(
 ) (*pb.SystemStatus, error) {
 	total, healthy := s.registry.GetStats()
 
-	// Calculate uptime
-	uptime := time.Since(s.startTime)
-	uptimeStr := fmt.Sprintf("%.1f hours", uptime.Hours())
-
 	status := &pb.SystemStatus{
 		TotalAgents:   int32(total),
 		HealthyAgents: int32(healthy),
-		Uptime:        uptimeStr,
+		Uptime:        "unknown", // TODO: Track uptime
 	}
 
 	if req.IncludeAgents {

@@ -1,53 +1,134 @@
 # 🚀 TitanCompute Quick Start Guide
 
-## Prerequisites Check ✅
+Get TitanCompute running in development or deployment mode in minutes.
 
-Before starting, ensure you have:
+## Prerequisites ✅
+
+**For Deployment Mode:**
+- Docker 20.10+ and Docker Compose 1.29+
+
+**For Development Mode:**
+- Docker + Go 1.21+ + Python 3.12+ + `protoc` 3.15+
+
+## 🚀 Deployment Mode (Production)
+
+**For containerized production deployment:**
 
 ```bash
-# Check Docker
-docker --version
-# Expected: Docker version 20.10+ 
+# 1. Deploy everything
+./scripts/deploy.sh
 
-# Check Docker Compose
-docker-compose --version
-# Expected: docker-compose version 1.29+
+# 2. Test the system
+cd client && python rest_client.py
 
-# Check Go
-go version  
-# Expected: go version go1.24+
-
-# Check Protocol Buffers
-protoc --version
-# Expected: libprotoc 3.15+
+# 3. Check status
+./scripts/deploy.sh status
 ```
 
-## 30-Second Startup 🏃‍♂️
+**Services deployed:**
+- Coordinator: `localhost:50051` (gRPC), `localhost:8080` (REST)
+- Agent 1: `localhost:50052` (gRPC) 
+- Agent 2: `localhost:50053` (gRPC)
+
+## 🛠️ Development Mode (Local)
+
+**For local development and testing:**
+
+### Full Development Setup
 
 ```bash
-# 1. Clone and enter directory
-cd /home/marcus/code/TitanCompute
+# 1. Generate protocol buffers
+./proto/generate.sh
 
-# 2. Deploy everything
-cd deploy && ./bootstrap.sh
+# 2. Start coordinator
+cd coordinator && go run cmd/main.go &
 
-# 3. Test the system
-cd ../client && python test_suite.py
+# 3. Start agent (separate terminal)
+cd agent
+pip install -r requirements.txt
+AGENT_ID=agent-1 AGENT_PORT=50052 python main.py &
 
-# 4. Check status
-cd ../deploy && ./bootstrap.sh status
+# 4. Test with client examples
+cd client && python rest_client.py
 ```
 
-## What Gets Deployed 📦
+### Mixed Mode (Development)
 
-### Services Started:
-- **Coordinator** (`:50051`) - MCDA scheduling + JWT auth
-- **Agent 1** (`:50052`) - GGUF quantization + model serving  
-- **Agent 2** (`:50053`) - GGUF quantization + model serving
-
-### Docker Containers:
 ```bash
-docker ps
+# Use deployment for agents, run coordinator locally
+./scripts/deploy.sh
+
+# Stop coordinator container and run locally
+docker stop titan-coordinator
+cd coordinator && go run cmd/main.go
+```
+
+## 🧪 Testing Your Setup
+
+### Quick Health Check
+
+```bash
+# REST API health check
+curl http://localhost:8080/api/v1/health
+
+# System status
+curl "http://localhost:8080/api/v1/status?include_agents=true"
+
+# Test inference request
+curl -X POST http://localhost:8080/api/v1/inference/request \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "quickstart-test",
+    "model": "llama3.1:8b-instruct-q4_k_m",
+    "prompt": "Hello, TitanCompute!",
+    "max_tokens": 50
+  }'
+```
+
+### Client Examples
+
+```bash
+cd client
+
+# REST API client example
+python rest_client.py
+
+# Shell/curl tests
+./test_curl.sh
+```
+
+## 🔧 Development Workflow
+
+### Code Changes
+
+```bash
+# After modifying coordinator code
+cd coordinator && go build -o coordinator cmd/main.go
+./coordinator
+
+# After modifying agent code
+cd agent && python main.py
+
+# After modifying protocol buffers
+./proto/generate.sh
+# Then rebuild both services
+```
+
+### Development Tools
+
+```bash
+# View logs (deployment mode)
+./scripts/deploy.sh logs
+
+# Monitor specific service
+docker logs -f titan-coordinator
+docker logs -f titan-agent-1
+
+# View service status
+./scripts/deploy.sh status
+
+# Restart services
+./scripts/deploy.sh restart
 # Should show:
 # titan-coordinator
 # titan-agent-1  
@@ -189,3 +270,36 @@ Once deployment is successful:
 ---
 
 **🎉 Welcome to TitanCompute M2 Production!**
+
+#### **Option 1: Full Deployment (Recommended)**
+```bash
+# 1. Prerequisites: Docker, Go 1.24+, protoc
+cd /home/marcus/code/TitanCompute/deploy
+./bootstrap.sh
+
+# 2. Test all M2 features
+cd ../client
+python test_suite.py
+
+# 3. Monitor services
+cd ../deploy
+./bootstrap.sh status
+```
+
+#### **Option 2: Quick Start Guide**
+```bash
+# Use the new quick start guide
+cat QUICKSTART.md
+```
+
+#### **Option 3: Development Mode**
+```bash
+# Run coordinator
+cd coordinator && go run cmd/main.go
+
+# Run agent (separate terminal)
+cd agent && python main.py
+
+# Test (separate terminal)
+cd client && python test_suite.py
+```

@@ -1,11 +1,11 @@
 #!/bin/bash
-# TitanCompute M1 Project Validation
+# TitanCompute Project Validation
 
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-echo "🔍 Validating TitanCompute M1 Project Structure"
-echo "=============================================="
+echo "🔍 Validating TitanCompute Project Structure"
+echo "==========================================="
 
 # Check project structure
 check_structure() {
@@ -29,7 +29,7 @@ check_structure() {
         "agent/requirements.txt"
         "agent/Dockerfile"
         "agent/entrypoint.sh"
-        "client/test_client.py"
+        "client/test_suite.py"
         "deploy/docker-compose.yml"
         "deploy/bootstrap.sh"
         "README.md"
@@ -124,7 +124,7 @@ check_permissions() {
         "proto/generate.sh"
         "agent/main.py"
         "agent/entrypoint.sh"
-        "client/test_client.py"
+        "client/test_suite.py"
         "deploy/bootstrap.sh"
     )
     
@@ -162,7 +162,7 @@ generate_summary() {
     echo ""
     echo "🚀 **Quick Start:**"
     echo "   1. cd deploy && ./bootstrap.sh"
-    echo "   2. cd ../client && python test_client.py"
+    echo "   2. cd ../client && python test_suite.py"
     echo ""
     echo "📊 **Key Components:**"
     echo "   • Protocol Buffers: gRPC service definitions"

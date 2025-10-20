@@ -1,81 +1,113 @@
 # TitanCompute
 
-**Production-ready distributed LLM inference system with zero-proxy streaming architecture.**
+**Production-ready distributed LLM inference system with zero-proxy streaming architecture and intelligent MCDA scheduling.**
 
-[![M1 MVP](https://img.shields.io/badge/M1-✅%20Complete-green)](docs/M1_IMPLEMENTATION.md)
-[![M2 Production](https://img.shields.io/badge/M2-✅%20Complete-green)](docs/M2_IMPLEMENTATION_SUMMARY.md)
+## 🎯 What is TitanCompute?
 
-## 🎯 Key Features
+TitanCompute is a high-performance distributed system for Large Language Model (LLM) inference that eliminates traditional bottlenecks through **zero-proxy streaming**. Instead of routing inference data through a central proxy, TitanCompute's coordinator intelligently selects optimal compute nodes and provides clients with direct streaming connections.
 
-### Core Innovation: Zero-Proxy Streaming
-- **Go-based Coordinator**: Memory-aware MCDA scheduling with circuit breaker fault tolerance
-- **Python-based Agent Peers**: Direct client streaming with intelligent GGUF quantization  
-- **JWT Authentication**: Industry-standard RSA-256 token-based security
-- **Smart Model Management**: Automatic quantization selection based on available memory
-- **Production-Grade Reliability**: Circuit breaker pattern with automatic recovery
+## ✨ Key Features
 
-### M2 Production Features ✅
-- ✅ **Memory-Aware MCDA Scheduling**: 40% VRAM + 30% Jobs + 20% RTT + 10% Performance
-- ✅ **Circuit Breaker Fault Tolerance**: 3-state pattern (Closed → Open → Half-Open)
-- ✅ **Complete GGUF Quantization**: Full bartowski range (Q8_0 to IQ2_M) with ARM optimization
-- ✅ **JWT Authentication**: Secure client-agent authentication with RSA-256 signing
-- ✅ **Real-time Health Monitoring**: VRAM/RAM/CPU monitoring with degraded state detection
-- ✅ **Docker Deployment**: Production-ready containerized setup with GPU support
+- **🧠 Memory-Aware MCDA Scheduling**: Multi-criteria agent selection (40% VRAM + 30% Jobs + 20% RTT + 10% Performance)
+- **🔄 Zero-Proxy Streaming**: Direct client-to-agent connections for maximum throughput
+- **🔒 JWT Authentication**: RSA-256 signed tokens for secure agent access
+- **⚖️ GGUF Quantization**: Intelligent model quantization based on available system memory
+- **🛡️ Circuit Breaker Fault Tolerance**: Automatic failure detection and recovery
+- **🐳 Production Ready**: Docker deployment with GPU support and health monitoring
 
 ## 🏗️ Architecture
 
-```
-Client → Coordinator (MCDA + JWT) → Selected Agent (JWT Validation) → Direct Stream → Client
+```mermaid
+graph TB
+    Client[Client Application]
+    Coordinator[Coordinator<br/>Go + REST/gRPC]
+    Agent1[Agent 1<br/>Python + Ollama]
+    Agent2[Agent 2<br/>Python + Ollama]
+    Agent3[Agent N<br/>Python + Ollama]
+    
+    Client -->|1. POST /inference/request| Coordinator
+    Coordinator -->|2. MCDA Selection| Coordinator
+    Coordinator -->|3. JWT + Agent Endpoint| Client
+    Client -.->|4. Direct gRPC Stream| Agent1
+    Client -.->|4. Direct gRPC Stream| Agent2
+    Client -.->|4. Direct gRPC Stream| Agent3
+    
+    Agent1 -->|Registration & Health| Coordinator
+    Agent2 -->|Registration & Health| Coordinator  
+    Agent3 -->|Registration & Health| Coordinator
+    
+    subgraph "Zero-Proxy Design"
+        direction TB
+        A[Traditional: Client → Proxy → Agent] 
+        B[TitanCompute: Client → Coordinator → Client → Agent]
+        A -.->|❌ Bottleneck| B
+    end
+    
+    style Client fill:#e1f5fe
+    style Coordinator fill:#f3e5f5
+    style Agent1 fill:#e8f5e8
+    style Agent2 fill:#e8f5e8  
+    style Agent3 fill:#e8f5e8
 ```
 
-**Key Innovation**: Coordinator only routes requests, never proxies inference data, eliminating traditional bottlenecks.
+## 🎯 Use Cases
+
+### **High-Throughput Inference Workloads**
+- Multiple concurrent LLM requests requiring optimal resource utilization
+- Real-time applications needing low latency and high availability
+- Production systems requiring automatic failover and load balancing
+
+### **Multi-GPU Deployments**
+- Distributed inference across multiple compute nodes
+- Intelligent quantization for memory-constrained environments
+- GPU resource optimization with VRAM-aware scheduling
+
+### **Development and Testing**
+- Local development with multiple model variants
+- A/B testing different quantization strategies
+- Performance benchmarking and optimization
+
+### **Edge Computing**
+- Resource-constrained edge deployments
+- Automatic quantization based on available hardware
+- Efficient model distribution and caching
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Docker & Docker Compose with GPU support
-- Go 1.24+ 
-- Python 3.12+
-- Protocol Buffers compiler (protoc)
-
-### 1. Deploy the System
 ```bash
-cd deploy
-./bootstrap.sh
+# Deploy the system
+./scripts/deploy.sh
+
+# Test with REST API
+cd client && python rest_client.py
+
+# View system status
+./scripts/deploy.sh status
 ```
 
-This will:
-- Generate protocol buffers for Go and Python
-- Build Docker images with all dependencies
-- Start coordinator + 2 agents with GPU support
-- Configure networking and persistent volumes
+For detailed setup instructions, see [QUICKSTART.md](QUICKSTART.md).
 
-### 2. Test All Features
-```bash
-cd client
-python test_suite.py
+## 📁 Project Structure
+
+```
+TitanCompute/
+├── coordinator/          # Go-based coordinator service
+├── agent/               # Python-based agent service  
+├── proto/               # gRPC protocol definitions
+├── client/              # Client examples and testing tools
+├── scripts/             # Deployment and validation scripts
+├── docker-compose.yml   # Container orchestration
+├── QUICKSTART.md       # Detailed setup guide
+└── README.md           # This file
 ```
 
-The comprehensive test suite validates:
-- ✅ Basic inference flow (M1)
-- ✅ MCDA scheduling intelligence (M2)
-- ✅ Circuit breaker states (M2)
-- ✅ GGUF quantization support (M2)
-- ✅ JWT authentication flow (M2)
+## 🔄 Request Flow
 
-### 3. Monitor Services
-```bash
-# View all logs with structured JSON output
-docker-compose logs -f
-
-# Check system status
-./bootstrap.sh status
-
-# View specific service logs
-docker-compose logs -f coordinator
-docker-compose logs -f agent-1
-docker-compose logs -f agent-2
-```
+1. **Client** → `POST /api/v1/inference/request` → **Coordinator**
+2. **Coordinator** → MCDA scheduling → Select optimal agent → Generate JWT token
+3. **Client** ← JWT token + agent endpoint ← **Coordinator**  
+4. **Client** → Direct gRPC streaming with JWT → **Selected Agent**
+5. **Agent** → JWT validation → Model inference → Stream results → **Client**
 
 ## 📊 System Endpoints
 
@@ -87,83 +119,17 @@ docker-compose logs -f agent-2
 
 ## 🧪 Testing
 
-### Comprehensive Test Suite
+All testing utilities are located in the [`client/`](client/) directory:
+
 ```bash
-# Run all M1 + M2 feature tests
-cd client
-python test_suite.py
+# REST API testing (recommended)
+cd client && python rest_client.py
 
-# Test specific features
-python test_suite.py --help
+# Shell/curl testing  
+cd client && ./test_curl.sh
 ```
 
-### Manual Testing
-```bash
-# System status with circuit breaker states
-grpcurl -plaintext localhost:50051 titancompute.v1.CoordinatorService/QuerySystemStatus
-
-# Request inference with MCDA scheduling
-grpcurl -plaintext -d '{"client_id": "test", "model": "llama3.1:8b-instruct-q4_k_m", "prompt": "Hello"}' \
-  localhost:50051 titancompute.v1.CoordinatorService/RequestInference
-
-# Test different quantization levels
-grpcurl -plaintext -d '{"client_id": "test", "model": "llama3.1:8b-instruct-q8_0", "prompt": "Test premium quality"}' \
-  localhost:50051 titancompute.v1.CoordinatorService/RequestInference
-```
-
-### Load Testing with MCDA
-```bash
-# Run multiple clients to see MCDA scheduling
-for i in {1..10}; do
-  python -c "
-import asyncio
-import sys
-sys.path.append('client')
-from test_suite import TitanComputeTestSuite
-asyncio.run(TitanComputeTestSuite().test_basic_inference())
-" &
-done
-wait
-```
-
-## 📁 Project Structure
-
-```
-titancompute/
-├── proto/                    # gRPC definitions & generation
-│   ├── titancompute.proto   # Service definitions
-│   └── generate.sh          # Protocol buffer generation
-├── coordinator/              # Go-based orchestrator (M2 Enhanced)
-│   ├── cmd/main.go          # Entry point with MCDA scheduler
-│   ├── pkg/
-│   │   ├── server/          # JWT authentication + gRPC services
-│   │   ├── scheduler/       # MCDA algorithm + circuit breaker
-│   │   ├── registry/        # Agent registry + health monitoring
-│   │   ├── config/          # Configuration management
-│   │   └── proto/           # Generated protobuf files
-│   └── Dockerfile
-├── agent/                    # Python-based edge peers (M2 Enhanced)
-│   ├── src/
-│   │   ├── agent_server.py  # gRPC server + JWT validation
-│   │   ├── model_manager.py # Ollama integration + GGUF quantization
-│   │   ├── quantization.py  # Complete bartowski quantization logic
-│   │   ├── stats_collector.py # VRAM/RAM/CPU monitoring
-│   │   ├── jwt_validator.py # JWT token validation
-│   │   ├── config.py        # Configuration management
-│   │   └── proto/           # Generated protobuf files
-│   ├── main.py              # Entry point
-│   ├── requirements.txt     # Python dependencies
-│   └── Dockerfile
-├── client/                   # Test clients
-│   └── test_suite.py        # Comprehensive M1+M2 test suite
-├── deploy/                   # Docker Compose setup
-│   ├── docker-compose.yml   # Multi-service orchestration
-│   └── bootstrap.sh         # Deployment automation
-├── docs/                     # Documentation
-│   ├── M2_IMPLEMENTATION_SUMMARY.md
-│   └── CLEANUP_REPORT.md
-└── README.md
-```
+For detailed testing options, see [`client/README.md`](client/README.md).
 
 ## ⚙️ Configuration
 
@@ -198,22 +164,16 @@ The system automatically selects quantization based on available memory:
 ### Service Management
 ```bash
 # Start all services
-./bootstrap.sh
+./scripts/deploy.sh
 
-# Stop services gracefully
-./bootstrap.sh stop
-
-# Restart services  
-./bootstrap.sh restart
-
-# Clean up everything (containers, volumes, images)
-./bootstrap.sh clean
+# Stop services
+./scripts/deploy.sh stop
 
 # View system status
-./bootstrap.sh status
+./scripts/deploy.sh status
 ```
 
-### Model Management (GGUF Quantization)
+### Model Management
 ```bash
 # Access agent container
 docker exec -it titan-agent-1 bash
@@ -221,132 +181,81 @@ docker exec -it titan-agent-1 bash
 # List available models
 ollama list
 
-# Pull bartowski GGUF models (auto-quantization)
-ollama pull hf.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF:Q8_0    # Premium quality
-ollama pull hf.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF:Q4_K_M  # Balanced (default)
-ollama pull hf.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF:Q2_K    # Emergency fallback
-
-# Check quantization recommendations
-python -c "
-from src.quantization import GGUFQuantizationManager
-manager = GGUFQuantizationManager()
-print('Recommended tier:', manager.determine_optimal_tier(manager.get_system_memory_info()[1]))
-"
+# Pull models (system auto-selects quantization)
+ollama pull llama3.1:8b-instruct-q4_k_m
 ```
 
-### Circuit Breaker Monitoring
-```bash
-# Check agent circuit states
-grpcurl -plaintext -d '{"include_agents": true}' \
-  localhost:50051 titancompute.v1.CoordinatorService/QuerySystemStatus
-
-# Force circuit breaker test (simulate failures)
-for i in {1..5}; do
-  grpcurl -plaintext -d '{"client_id": "circuit-test", "model": "non-existent-model", "prompt": "test"}' \
-    localhost:50051 titancompute.v1.CoordinatorService/RequestInference
-done
-```
-
-### JWT Token Analysis
-```bash
-# Get a JWT token from inference request
-TOKEN=$(grpcurl -plaintext -d '{"client_id": "jwt-test", "model": "llama3.1:8b-instruct-q4_k_m", "prompt": "test"}' \
-  localhost:50051 titancompute.v1.CoordinatorService/RequestInference | jq -r '.session_token')
-
-# Decode JWT token (without verification)
-python -c "
-import jwt
-import json
-token = '$TOKEN'
-decoded = jwt.decode(token, options={'verify_signature': False})
-print(json.dumps(decoded, indent=2))
-"
-```
-
-### Performance Monitoring
+### System Monitoring
 ```bash
 # Monitor system resources
 docker stats titan-coordinator titan-agent-1 titan-agent-2
 
-# Check MCDA scoring details (via logs)
-docker-compose logs coordinator | grep "MCDA agent selected"
+# Check logs
+docker-compose logs coordinator
+docker-compose logs agent-1
+```
 
-# Monitor quantization selections
-docker-compose logs agent-1 | grep "Selected quantization"
+### Quick API Testing
+```bash
+# REST API (direct inference)
+curl -X POST http://localhost:8080/api/v1/inference/request \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "test", "model": "llama3.1:8b-instruct-q4_k_m", "prompt": "Hello!"}'
+
+# Health check
+curl http://localhost:8080/health
 ```
 
 ### Troubleshooting
 ```bash
-# Check coordinator health
-grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
+# Check service health
+curl http://localhost:8080/health
 
-# Test agent connectivity
-grpcurl -plaintext localhost:50052 grpc.health.v1.Health/Check
-
-# View agent status with M2 enhancements
-grpcurl -plaintext localhost:50052 titancompute.v1.AgentService/GetStatus
-
-# Debug JWT issues
-docker-compose logs coordinator | grep -i jwt
-docker-compose logs agent-1 | grep -i jwt
+# View detailed logs
+docker-compose logs -f
 ```
 
-## � Performance Targets (M2 Production)
+## 📊 Performance Targets
 
-| Metric | Target | Achieved | Implementation |
-|--------|--------|----------|----------------|
-| Time-to-First-Token | < 500ms (p95) | ✅ | MCDA scheduling + model preloading |
-| Inter-Token Latency | < 50ms | ✅ | Direct streaming + GGUF optimization |
-| Concurrent Streams/Agent | 4-8 streams | ✅ | GPU memory management |
-| Scheduler Latency | < 50ms | ✅ | MCDA algorithm optimization |
-| System Availability | > 99.5% | ✅ | Circuit breaker fault tolerance |
-| Memory Efficiency | 30-60% reduction | ✅ | GGUF quantization |
+| Metric | Target | Implementation |
+|--------|--------|----------------|
+| Time-to-First-Token | < 500ms (p95) | MCDA scheduling + model preloading |
+| Inter-Token Latency | < 50ms | Direct streaming + GGUF optimization |
+| Concurrent Streams/Agent | 4-8 streams | GPU memory management |
+| System Availability | > 99.5% | Circuit breaker fault tolerance |
+| Memory Efficiency | 30-60% reduction | GGUF quantization |
 
-## 🎯 M2 Production Features Completed
+## 🎯 Production Features
 
-### Memory-Aware MCDA Scheduling ✅
-- **Multi-Criteria Algorithm**: 40% VRAM + 30% Jobs + 20% RTT + 10% Performance
-- **Intelligent Model Placement**: Estimates VRAM requirements automatically
-- **Performance History**: Tracks agent throughput for optimal selection
-- **Real-time Adaptation**: Adjusts scoring based on current system state
+### Memory-Aware MCDA Scheduling
+- Multi-Criteria Algorithm: 40% VRAM + 30% Jobs + 20% RTT + 10% Performance
+- Intelligent model placement with automatic VRAM estimation
+- Real-time adaptation based on current system state
 
-### Circuit Breaker Fault Tolerance ✅
-- **Three-State Pattern**: Closed → Open → Half-Open transitions
-- **Automatic Recovery**: Configurable failure thresholds and timeouts
-- **Health State Management**: Healthy → Degraded → Offline transitions
-- **Graceful Degradation**: Reduced traffic to struggling agents
+### Circuit Breaker Fault Tolerance
+- Three-state pattern: Closed → Open → Half-Open
+- Automatic recovery with configurable thresholds
+- Graceful degradation for struggling agents
 
-### Complete GGUF Quantization Support ✅
-- **Full Bartowski Range**: Q8_0 to IQ2_M (13 quantization formats)
-- **Memory-Aware Selection**: Automatic optimal quantization based on available RAM
-- **ARM Optimizations**: Special quantizations for ARM processors
-- **Intelligent Fallback**: Emergency quantizations for memory-constrained environments
+### GGUF Quantization Support
+- Full Bartowski range: Q8_0 to IQ2_M (13 formats)
+- Memory-aware selection based on available RAM
+- Intelligent fallback for memory-constrained environments
 
-### JWT Authentication & Security ✅
-- **RSA-256 Tokens**: Industry-standard cryptographic signatures
-- **Secure Agent Validation**: Public key distribution for token verification
-- **Configurable TTL**: Default 5-minute expiration with refresh capability
-- **Backward Compatibility**: Graceful fallback for development environments
+### JWT Authentication & Security
+- RSA-256 signed tokens with 5-minute TTL
+- Secure agent validation via public key distribution
+- Industry-standard cryptographic security
 
-## 🛣️ Development Roadmap
+## � Documentation
 
-- ✅ **M1 - MVP** (Completed): Basic routing, streaming, Docker deployment
-- ✅ **M2 - Production** (Completed): Circuit breaker, GGUF quantization, JWT auth, MCDA scheduling
-- 🚧 **M3 - Scale** (Next): Multi-node orchestration, advanced scheduling algorithms
-- 📋 **M4 - Enterprise** (Future): Kubernetes deployment, advanced observability, security hardening
-
-## 📚 Documentation
-
-- **[M2 Implementation Summary](docs/M2_IMPLEMENTATION_SUMMARY.md)**: Detailed technical overview
-- **[Cleanup Report](docs/CLEANUP_REPORT.md)**: Codebase audit and cleanup details
-- **[Project Overview](.prompts/overview.md)**: Complete architectural specification
-
-## 📝 License
-
-TitanCompute is built for production deployment with enterprise-grade architecture patterns.
+For detailed component documentation, see:
+- [`agent/README.md`](agent/README.md) - Python agent implementation
+- [`coordinator/README.md`](coordinator/README.md) - Go coordinator service  
+- [`proto/README.md`](proto/README.md) - Protocol buffer definitions
+- [`client/README.md`](client/README.md) - Client examples and testing
+- [`scripts/README.md`](scripts/README.md) - Deployment and validation scripts
 
 ---
 
-**🎉 TitanCompute M2 Production - Advanced Distributed LLM Inference Complete!**
-
-*Zero-proxy streaming + Memory-aware MCDA + Circuit breaker fault tolerance + Complete GGUF quantization + JWT security*
+**TitanCompute** - Production-ready distributed LLM inference with zero-proxy streaming architecture.

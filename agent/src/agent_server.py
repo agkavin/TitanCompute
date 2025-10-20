@@ -3,7 +3,7 @@ import logging
 import grpc
 from grpc import aio
 import time
-from typing import Dict, Set, AsyncIterable
+from typing import Dict, Set
 from uuid import uuid4
 
 from .proto import titancompute_pb2 as pb2
@@ -137,30 +137,26 @@ class TitanAgent:
             
         stats = self.stats_collector.collect()
         
-        # Calculate RTT by measuring coordinator response time
-        start_time = time.time()
-        
         health_update = pb2.HealthUpdate(
             agent_id=self.config.agent_id,
             free_vram_mb=stats.free_vram_mb,
             free_ram_mb=stats.free_ram_mb,
             running_jobs=len(self.active_sessions),
-            queued_jobs=0,  # Simple implementation - no queuing yet
+            queued_jobs=0,  # Simple M1 implementation
             cpu_percent=stats.cpu_percent,
-            rtt_ms=0.0,  # Will be calculated after response
+            rtt_ms=0.0,  # TODO: Calculate RTT
             timestamp=int(time.time() * 1000)
         )
         
+        # For M1, we'll do simple health updates instead of streaming
         try:
             # Create a simple stream with one message
             async def health_stream():
                 yield health_update
             
             async for ack in self.coordinator_stub.ReportHealth(health_stream()):
-                # Calculate RTT based on response time
-                rtt_ms = (time.time() - start_time) * 1000
-                self.logger.debug(f"Health ack: {ack.status}, RTT: {rtt_ms:.1f}ms")
-                break  # Simple implementation - just one message
+                self.logger.debug(f"Health ack: {ack.status}")
+                break  # Simple M1 - just one message
                 
         except Exception as e:
             self.logger.warning(f"Health update failed: {e}")
@@ -215,9 +211,32 @@ class AgentServicer(pb2_grpc.AgentServiceServicer):
         self,
         request: pb2.StreamRequest,
         context: aio.ServicerContext
-    ) -> AsyncIterable[pb2.StreamResponse]:
+    ):
         """Handle direct inference streaming from clients"""
         
+        # Extract model from JWT token for more reliable model identification
+        model_name = None
+        try:
+            # Try to extract model from JWT token first
+            if self.agent.jwt_validator.public_key:
+                claims = self.agent.jwt_validator.validate_token(
+                    request.session_token, 
+                    self.agent.config.agent_id
+                )
+                if claims and claims.model:
+                    model_name = claims.model
+                    self.logger.debug(f"Model extracted from JWT: {model_name}")
+        except Exception as e:
+            self.logger.warning(f"Failed to extract model from JWT: {e}")
+        
+        # Fallback to request.model if JWT extraction failed
+        if not model_name:
+            model_name = request.model if request.model else None
+            
+        # Final fallback to first available model if still empty
+        if not model_name or not model_name.strip():
+            self.logger.warning("No model specified in request or JWT, using fallback")
+            
         # Validate session token
         if not self.agent.validate_session_token(request.session_token):
             context.set_code(grpc.StatusCode.UNAUTHENTICATED)
@@ -227,16 +246,16 @@ class AgentServicer(pb2_grpc.AgentServiceServicer):
         session_id = str(uuid4())
         self.agent.active_sessions[session_id] = {
             "token": request.session_token,
-            "model": request.model,
+            "model": model_name,
             "started_at": time.time()
         }
         
         try:
-            self.logger.info(f"🎯 Starting inference session {session_id}")
+            self.logger.info(f"🎯 Starting inference session {session_id} with model: {model_name}")
             
             # Stream inference from Ollama
             async for chunk in self.agent.model_manager.stream_inference(
-                model=request.model,
+                model=model_name,
                 prompt=request.prompt,
                 **dict(request.options)
             ):

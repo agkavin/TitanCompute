@@ -9,6 +9,7 @@ import (
 // Config holds the coordinator configuration
 type Config struct {
 	Port             int
+	HTTPPort         int
 	HeartbeatTimeout time.Duration
 	TokenTTL         time.Duration
 	CleanupInterval  time.Duration
@@ -18,6 +19,7 @@ type Config struct {
 func Load() *Config {
 	cfg := &Config{
 		Port:             50051,
+		HTTPPort:         8080,
 		HeartbeatTimeout: 30 * time.Second,
 		TokenTTL:         60 * time.Second,
 		CleanupInterval:  60 * time.Second,
@@ -27,6 +29,12 @@ func Load() *Config {
 	if port := os.Getenv("COORDINATOR_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Port = p
+		}
+	}
+
+	if httpPort := os.Getenv("COORDINATOR_HTTP_PORT"); httpPort != "" {
+		if p, err := strconv.Atoi(httpPort); err == nil {
+			cfg.HTTPPort = p
 		}
 	}
 

@@ -8,6 +8,10 @@
 *.dylib
 /coordinator/coordinator
 /coordinator/cmd/coordinator
+/coordinator/main
+/coordinator/bin/
+coordinator/coordinator
+coordinator/main
 
 # Go test binary, built with `go test -c`
 *.test
