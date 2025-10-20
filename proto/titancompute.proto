@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package titancompute.v1;
+
+option go_package = "github.com/titancompute/proto/gen/go;titancompute";
+
+// Coordinator Service - Central orchestration
+service CoordinatorService {
+  // Client requests inference routing
+  rpc RequestInference(InferenceRequest) returns (InferenceResponse);
+  
+  // Agent registration and health reporting
+  rpc RegisterAgent(AgentRegistration) returns (RegistrationResponse);
+  rpc ReportHealth(stream HealthUpdate) returns (stream HealthAck);
+  
+  // System queries
+  rpc QuerySystemStatus(StatusRequest) returns (SystemStatus);
+  
+  // JWT public key distribution
+  rpc GetPublicKey(PublicKeyRequest) returns (PublicKeyResponse);
+}
+
+// Agent Service - Direct client streaming
+service AgentService {
+  // Direct streaming inference (bypasses coordinator)
+  rpc StreamInference(StreamRequest) returns (stream StreamResponse);
+  
+  // Agent status queries
+  rpc GetStatus(AgentStatusRequest) returns (AgentStatusResponse);
+}
+
+// Client request for inference
+message InferenceRequest {
+  string client_id = 1;
+  string model = 2;
+  string prompt = 3;
+  int32 max_tokens = 4;
+  float temperature = 5;
+  map<string, string> parameters = 6;
+}
+
+// Coordinator response with agent endpoint
+message InferenceResponse {
+  string agent_endpoint = 1;
+  string session_token = 2;
+  int64 expires_at = 3;
+  string job_id = 4;
+  double estimated_rtt_ms = 5;
+  string agent_id = 6;
+}
+
+// Agent registration on startup
+message AgentRegistration {
+  string agent_id = 1;
+  string endpoint = 2;
+  int64 total_vram_mb = 3;
+  int64 total_ram_mb = 4;
+  int32 max_jobs = 5;
+  repeated string supported_models = 6;
+  map<string, string> capabilities = 7;
+}
+
+message RegistrationResponse {
+  string status = 1;
+  string message = 2;
+  int32 heartbeat_interval_seconds = 3;
+}
+
+// Periodic health updates from agents
+message HealthUpdate {
+  string agent_id = 1;
+  int64 free_vram_mb = 2;
+  int64 free_ram_mb = 3;
+  int32 running_jobs = 4;
+  int32 queued_jobs = 5;
+  double cpu_percent = 6;
+  double rtt_ms = 7;
+  int64 timestamp = 8;
+}
+
+message HealthAck {
+  string agent_id = 1;
+  string status = 2;
+  string message = 3;
+}
+
+// System status queries
+message StatusRequest {
+  bool include_agents = 1;
+  bool include_metrics = 2;
+}
+
+message SystemStatus {
+  int32 total_agents = 1;
+  int32 healthy_agents = 2;
+  int32 total_jobs = 3;
+  string uptime = 4;
+  repeated AgentStatus agents = 5;
+}
+
+message AgentStatus {
+  string agent_id = 1;
+  string status = 2;
+  int64 free_vram_mb = 3;
+  int32 running_jobs = 4;
+  int64 last_heartbeat = 5;
+}
+
+// Direct streaming messages
+message StreamRequest {
+  string session_token = 1;
+  string model = 2;
+  string prompt = 3;
+  int32 max_tokens = 4;
+  float temperature = 5;
+  bool stream = 6;
+  map<string, string> options = 7;
+}
+
+message StreamResponse {
+  string session_token = 1;
+  string content = 2;
+  bool done = 3;
+  string token = 4;
+  int64 created_at = 5;
+  map<string, string> metadata = 6;
+}
+
+// Agent status requests
+message AgentStatusRequest {
+  string agent_id = 1;
+  bool include_jobs = 2;
+}
+
+message AgentStatusResponse {
+  string agent_id = 1;
+  string status = 2;
+  int64 free_vram_mb = 3;
+  int64 free_ram_mb = 4;
+  int32 active_sessions = 5;
+  int64 total_requests_processed = 6;
+  string model_loaded = 7;
+}
+
+// Registration cleanup
+message DeregistrationRequest {
+  string agent_id = 1;
+  string reason = 2;
+}
+
+message DeregistrationResponse {
+  string status = 1;
+  string message = 2;
+}
+
+// JWT public key distribution
+message PublicKeyRequest {
+  // Empty request - anyone can get the public key
+}
+
+message PublicKeyResponse {
+  string public_key_pem = 1;
+  string algorithm = 2;
+  string issuer = 3;
+}

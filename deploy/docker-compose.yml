@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  coordinator:
+    build:
+      context: ./coordinator
+      dockerfile: Dockerfile
+    container_name: titan-coordinator
+    ports:
+      - "50051:50051"
+      - "8080:8080"
+    environment:
+      - COORDINATOR_PORT=50051
+      - HEARTBEAT_TIMEOUT=30s
+      - TOKEN_TTL=300s
+    volumes:
+      - coordinator-logs:/app/logs
+    networks:
+      - titan-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  agent-1:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: titan-agent-1
+    ports:
+      - "50052:50052"
+    environment:
+      - AGENT_ID=agent-1
+      - COORDINATOR_ENDPOINT=coordinator:50051
+      - PUBLIC_HOST=agent-1
+      - AGENT_PORT=50052
+      - OLLAMA_HOST=http://localhost:11434
+      - MAX_CONCURRENT_JOBS=4
+      - SUPPORTED_MODELS=llama3.1:8b-instruct-q4_k_m
+      - PRELOAD_MODELS=hf.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF:Q4_K_M
+      - HEARTBEAT_INTERVAL=10
+    volumes:
+      - agent1-models:/root/.ollama
+      - agent1-logs:/app/logs
+    depends_on:
+      coordinator:
+        condition: service_healthy
+    networks:
+      - titan-network
+    restart: unless-stopped
+
+  agent-2:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: titan-agent-2
+    ports:
+      - "50053:50052"
+    environment:
+      - AGENT_ID=agent-2
+      - COORDINATOR_ENDPOINT=coordinator:50051
+      - PUBLIC_HOST=agent-2
+      - AGENT_PORT=50052
+      - OLLAMA_HOST=http://localhost:11434
+      - MAX_CONCURRENT_JOBS=4
+      - SUPPORTED_MODELS=llama3.1:8b-instruct-q4_k_m
+      - PRELOAD_MODELS=hf.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF:Q4_K_M
+      - HEARTBEAT_INTERVAL=10
+    volumes:
+      - agent2-models:/root/.ollama
+      - agent2-logs:/app/logs
+    depends_on:
+      coordinator:
+        condition: service_healthy
+    networks:
+      - titan-network
+    restart: unless-stopped
+
+volumes:
+  agent1-models:
+  agent2-models:
+  agent1-logs:
+  agent2-logs:
+  coordinator-logs:
+
+networks:
+  titan-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

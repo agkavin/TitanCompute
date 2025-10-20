@@ -1,0 +1,228 @@
+# TitanCompute .gitignore
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/coordinator/coordinator
+/coordinator/cmd/coordinator
+
+# Go test binary, built with `go test -c`
+*.test
+
+# Go coverage files
+*.out
+*.coverprofile
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Go mod cache
+/coordinator/vendor/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Python distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python generated protobuf files
+# Keeping our protobuf files as they are part of the codebase
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Docker
+.dockerignore
+
+# Docker Compose override files
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# Logs
+*.log
+logs/
+/coordinator/logs/
+/agent/logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Package manager lock files (keep requirements.txt but ignore lock files)
+/agent/uv.lock
+/agent/poetry.lock
+/agent/Pipfile.lock
+package-lock.json
+yarn.lock
+
+# Test coverage
+coverage/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+
+# Local development files
+/tmp/
+/test-data/
+/test-output/
+
+# Model files (usually large)
+*.gguf
+*.bin
+*.safetensors
+models/
+
+# Ollama data (if running locally)
+.ollama/
+
+# Development databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Local configuration overrides
+config.local.json
+config.local.yml
+config.local.yaml
+
+# Generated documentation
+/docs/generated/
+/docs/build/
+
+# Terraform (if used for infrastructure)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Helm charts (if used for Kubernetes)
+charts/*.tgz
+
+# Monitoring and metrics data
+prometheus_data/
+grafana_data/
+
+# IDE and editor files
+*.sublime-project
+*.sublime-workspace
+.vim/
+.nvim/
+
+# Profiling output
+*.prof
+*.pprof
+
+# Memory dumps
+*.heapdump
+*.memorydump
+
+# Core dumps
+core.*
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Archive files (generated during build/deployment)
+*.tar.gz
+*.zip
+*.tar
+*.rar
+
+# Generated API documentation
+/docs/api/
+
+# Local deployment artifacts
+/deploy/local/
+/deploy/dev/
+
+# Performance test results
+/benchmark-results/
+/load-test-results/
+
+# Security scan results
+/security-scan-results/
+
+# Local scripts (that shouldn't be committed)
+run-local.sh
+test-local.sh
+debug.sh
+
+# prompts
+.prompts
+
+# Generated documentation
+/docs/generated/
+/docs/build/
