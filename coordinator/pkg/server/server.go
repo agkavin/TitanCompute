@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/titancompute/coordinator/pkg/config"
-	pb "github.com/titancompute/coordinator/pkg/proto/github.com/titancompute/proto/gen/go"
+	pb "github.com/titancompute/coordinator/pkg/proto"
 	"github.com/titancompute/coordinator/pkg/registry"
 	"github.com/titancompute/coordinator/pkg/scheduler"
 )
