@@ -18,36 +18,65 @@ TitanCompute is a high-performance distributed system for Large Language Model (
 ## 🏗️ Architecture
 
 ```mermaid
-graph TB
-    Client[Client Application]
-    Coordinator[Coordinator<br/>Go + REST/gRPC]
-    Agent1[Agent 1<br/>Python + Ollama]
-    Agent2[Agent 2<br/>Python + Ollama]
-    Agent3[Agent N<br/>Python + Ollama]
-    
-    Client -->|1. POST /inference/request| Coordinator
-    Coordinator -->|2. MCDA Selection| Coordinator
-    Coordinator -->|3. JWT + Agent Endpoint| Client
-    Client -.->|4. Direct gRPC Stream| Agent1
-    Client -.->|4. Direct gRPC Stream| Agent2
-    Client -.->|4. Direct gRPC Stream| Agent3
-    
-    Agent1 -->|Registration & Health| Coordinator
-    Agent2 -->|Registration & Health| Coordinator  
-    Agent3 -->|Registration & Health| Coordinator
-    
-    subgraph "Zero-Proxy Design"
-        direction TB
-        A[Traditional: Client → Proxy → Agent] 
-        B[TitanCompute: Client → Coordinator → Client → Agent]
-        A -.->|❌ Bottleneck| B
+flowchart TD
+    subgraph "Client Layer"
+        C[🖥️ Client Application<br/>REST/gRPC]
     end
     
-    style Client fill:#e1f5fe
-    style Coordinator fill:#f3e5f5
-    style Agent1 fill:#e8f5e8
-    style Agent2 fill:#e8f5e8  
-    style Agent3 fill:#e8f5e8
+    subgraph "Coordination Layer"
+        CO[🧠 Coordinator<br/>Go + gRPC<br/>Port: 50051]
+        
+        subgraph "MCDA Scheduling Engine"
+            MCDA[📊 Multi-Criteria Decision<br/>40% VRAM + 30% Jobs<br/>20% RTT + 10% Performance]
+            JWT[🔐 JWT Token Generation<br/>RSA-256 Signed<br/>5min TTL]
+        end
+    end
+    
+    subgraph "Compute Layer"
+        A1[🤖 Agent 1<br/>Python + Ollama<br/>Port: 50052]
+        A2[🤖 Agent 2<br/>Python + Ollama<br/>Port: 50053]
+        A3[🤖 Agent N<br/>Python + Ollama<br/>Port: 5005X]
+    end
+    
+    subgraph "Model Layer"
+        M1[📦 GGUF Models<br/>Auto-Quantized<br/>Q8_0 → IQ2_M]
+        M2[📦 GGUF Models<br/>Auto-Quantized<br/>Q8_0 → IQ2_M]
+        M3[📦 GGUF Models<br/>Auto-Quantized<br/>Q8_0 → IQ2_M]
+    end
+    
+    %% Request Flow
+    C -->|1️⃣ POST /inference/request| CO
+    CO --> MCDA
+    MCDA --> JWT
+    JWT -->|2️⃣ Optimal Agent + JWT| C
+    
+    %% Direct Streaming (Zero-Proxy)
+    C -.->|3️⃣ Direct gRPC Stream<br/>with JWT Auth| A1
+    C -.->|3️⃣ Direct gRPC Stream<br/>with JWT Auth| A2
+    C -.->|3️⃣ Direct gRPC Stream<br/>with JWT Auth| A3
+    
+    %% Agent Management
+    A1 -.->|💓 Health & Registration| CO
+    A2 -.->|💓 Health & Registration| CO
+    A3 -.->|💓 Health & Registration| CO
+    
+    %% Model Management
+    A1 --> M1
+    A2 --> M2
+    A3 --> M3
+    
+    %% Styling
+    classDef clientStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef coordStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef agentStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef modelStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef engineStyle fill:#fce4ec,stroke:#c2185b,stroke-width:1px,color:#000
+    
+    class C clientStyle
+    class CO coordStyle
+    class A1,A2,A3 agentStyle
+    class M1,M2,M3 modelStyle
+    class MCDA,JWT engineStyle
 ```
 
 ## 🎯 Use Cases
@@ -259,3 +288,32 @@ For detailed component documentation, see:
 ---
 
 **TitanCompute** - Production-ready distributed LLM inference with zero-proxy streaming architecture.
+
+### 🔄 Zero-Proxy Architecture Advantage
+
+```mermaid
+flowchart LR
+    subgraph "Traditional Proxy Architecture"
+        direction LR
+        C1[👤 Client] --> P[🔄 Proxy<br/>Bottleneck] --> A1T[🤖 Agent]
+        P --> A2T[🤖 Agent]
+        P --> A3T[🤖 Agent]
+    end
+    
+    subgraph "TitanCompute Zero-Proxy"
+        direction LR
+        C2[👤 Client] --> CO2[🧠 Coordinator<br/>Selection Only]
+        CO2 -.->|JWT + Endpoint| C2
+        C2 -.->|Direct Stream| A1Z[🤖 Agent]
+        C2 -.->|Direct Stream| A2Z[🤖 Agent] 
+        C2 -.->|Direct Stream| A3Z[🤖 Agent]
+    end
+    
+    classDef bottleneck fill:#ffcdd2,stroke:#d32f2f,stroke-width:3px
+    classDef efficient fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    classDef client fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    
+    class P bottleneck
+    class CO2,A1Z,A2Z,A3Z efficient
+    class C1,C2 client
+```
