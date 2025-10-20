@@ -5,12 +5,13 @@ from dataclasses import dataclass
 from typing import Optional
 
 try:
+    # Import pynvml (now from nvidia-ml-py package)
     import pynvml
     HAS_GPU = True
     pynvml.nvmlInit()
-except (ImportError, pynvml.NVMLError):
+except (ImportError, Exception) as e:
     HAS_GPU = False
-    logging.warning("NVIDIA GPU monitoring not available")
+    logging.warning(f"NVIDIA GPU monitoring not available: {e}")
 
 
 @dataclass

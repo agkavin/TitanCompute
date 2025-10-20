@@ -35,8 +35,11 @@ class JWTValidator:
     def set_public_key(self, public_key_pem: str):
         """Set the coordinator's public key for validation"""
         try:
-            self.public_key = jwt.algorithms.RSAAlgorithm.from_jwk(
-                jwt.api_jwk.PyJWK.from_pem(public_key_pem.encode()).key
+            # Use cryptography library to load PEM key directly
+            from cryptography.hazmat.primitives import serialization
+            
+            self.public_key = serialization.load_pem_public_key(
+                public_key_pem.encode()
             )
             self.logger.info("JWT public key configured successfully")
         except Exception as e:
